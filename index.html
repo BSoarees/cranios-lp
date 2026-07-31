@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Crânios | Escola de pensamento criativo</title>
+<meta name="description" content="Doses curtas de raciocínio aplicado. O pensamento antes da ferramenta. Escola de pensamento criativo do ecossistema Crxate." />
+<link rel="icon" type="image/png" href="assets/brain.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Boldonse&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Crimson+Pro:ital,wght@0,400;0,500;1,400;1,500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<!-- GSAP 3.13 (SplitText liberado) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/SplitText.min.js"></script>
+<!-- Lenis smooth scroll -->
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.18/dist/lenis.min.js"></script>
+<!-- Motion (motion.dev) UMD -->
+<script src="https://cdn.jsdelivr.net/npm/motion@11.13.5/dist/motion.js"></script>
+<!-- three.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- máscara do cérebro oficial (base64, evita taint de canvas em file://) -->
+<script src="assets/brain-mask.js"></script>
+
+<style>
+/* ════════════════════════ TOKENS ════════════════════════
+   Uma tinta só. Azul sobre papel. Como uma risografia.    */
+:root {
+  --paper:      #f2efe6;
+  --paper-2:    #ece8dc;
+  --ink:        #2722cc;
+  --ink-deep:   #1b17a0;
+  --ink-70:     rgba(39,34,204,0.70);
+  --ink-45:     rgba(39,34,204,0.45);
+  --ink-25:     rgba(39,34,204,0.25);
+  --ink-12:     rgba(39,34,204,0.12);
+  --ink-06:     rgba(39,34,204,0.06);
+  --wordmark:   'Boldonse', sans-serif;
+  --grotesk:    'Bricolage Grotesque', sans-serif;
+  --serif:      'Crimson Pro', Georgia, serif;
+  --mono:       'DM Mono', ui-monospace, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+::selection { background: var(--ink); color: var(--paper); }
+
+body {
+  font-family: var(--grotesk);
+  background: var(--paper);
+  color: var(--ink);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* grão de papel + tinta */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 999;
+  opacity: 0.5; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.54 0 0 0 0 0.50 0 0 0 0.16 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 clamp(20px, 4vw, 56px); }
+
+.spec {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-70);
+}
+
+/* marcas de registro */
+.regmark { position: absolute; width: 18px; height: 18px; opacity: 0.5; }
+.regmark::before, .regmark::after { content:''; position:absolute; background: var(--ink); }
+.regmark::before { width: 1px; height: 100%; left: 50%; }
+.regmark::after  { height: 1px; width: 100%; top: 50%; }
+.rm-tl { top: 14px; left: 14px; }
+.rm-tr { top: 14px; right: 14px; }
+.rm-bl { bottom: 14px; left: 14px; }
+.rm-br { bottom: 14px; right: 14px; }
+
+/* barra de impressão (progresso) */
+#printbar {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 200;
+  background: var(--ink); transform-origin: 0 0; transform: scaleX(0);
+}
+
+/* cursor de tinta */
+#inkdot {
+  position: fixed; z-index: 998; pointer-events: none;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--ink); mix-blend-mode: multiply;
+  transform: translate(-50%, -50%);
+  transition: width 0.25s, height 0.25s, opacity 0.25s;
+  opacity: 0;
+}
+#inkdot.on { opacity: 0.85; }
+#inkdot.grow { width: 34px; height: 34px; opacity: 0.28; }
+@media (hover: none) { #inkdot { display: none; } }
+
+/* ════════════════════════ NAV ════════════════════════ */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  border-bottom: 1px solid var(--ink-25);
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(10px);
+}
+.nav-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px clamp(20px, 4vw, 56px);
+}
+.nav-brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+.nav-brand svg { width: 26px; height: 26px; }
+.nav-brand .wm { font-family: var(--wordmark); font-size: 15px; letter-spacing: 0.04em; }
+.nav-links { display: flex; gap: 28px; align-items: center; }
+.nav-links a {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em;
+  text-transform: uppercase; text-decoration: none; color: var(--ink-70);
+}
+.nav-links a:hover { color: var(--ink); }
+.nav-cta {
+  color: var(--paper) !important; background: var(--ink);
+  padding: 9px 18px; border-radius: 2px;
+}
+.nav-cta:hover { background: var(--ink-deep); }
+@media (max-width: 720px) { .nav-links a:not(.nav-cta) { display: none; } }
+
+/* ════════════════════════ HERO ════════════════════════ */
+.hero {
+  position: relative;
+  min-height: 100svh;
+  display: flex; flex-direction: column; justify-content: center;
+  padding-top: 80px;
+  border-bottom: 1px solid var(--ink-25);
+}
+#brain-gl {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+}
+#brain-gl canvas { display: block; }
+.hero .wrap { position: relative; z-index: 2; }
+.hero-spec-row {
+  display: flex; justify-content: space-between; gap: 16px;
+  margin-bottom: clamp(24px, 4vh, 48px);
+}
+.hero h1 {
+  font-family: var(--grotesk);
+  font-weight: 800;
+  font-size: clamp(44px, 8.4vw, 116px);
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  max-width: 12ch;
+}
+.hero h1 .serif {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  text-transform: none; letter-spacing: -0.01em;
+}
+.hero-sub {
+  margin-top: clamp(24px, 4vh, 44px);
+  max-width: 520px;
+  font-size: clamp(16px, 1.6vw, 19px);
+  line-height: 1.55;
+  color: var(--ink-70);
+}
+.hero-actions { margin-top: clamp(28px, 4vh, 48px); display: flex; gap: 14px; flex-wrap: wrap; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 15px 28px; border-radius: 2px; text-decoration: none;
+  border: 1px solid var(--ink); color: var(--ink);
+  background: transparent; cursor: pointer;
+  transition: background 0.2s, color 0.2s, box-shadow 0.15s;
+  will-change: transform;
+}
+.btn-solid { background: var(--ink); color: var(--paper); box-shadow: 4px 4px 0 var(--ink-25); }
+.btn-solid:hover { background: var(--ink-deep); box-shadow: 6px 6px 0 var(--ink-25); }
+.btn-ghost:hover { background: var(--ink-06); }
+
+.hero-scroll-hint {
+  position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 2;
+}
+.hero-scroll-hint .line { width: 1px; height: 44px; background: var(--ink-45); overflow: hidden; position: relative; }
+.hero-scroll-hint .line::after {
+  content:''; position: absolute; left: 0; top: -100%; width: 100%; height: 100%;
+  background: var(--ink); animation: drip 1.8s ease-in-out infinite;
+}
+@keyframes drip { 0% { top: -100%; } 60% { top: 100%; } 100% { top: 100%; } }
+
+/* faixa marquee */
+.marquee {
+  border-bottom: 1px solid var(--ink-25);
+  overflow: hidden; white-space: nowrap;
+  padding: 12px 0;
+  background: var(--ink); color: var(--paper);
+}
+.marquee-inner { display: inline-block; will-change: transform; }
+.marquee img {
+  height: 15px; width: auto;
+  margin-right: 48px; vertical-align: middle;
+}
+.marquee em { font-family: var(--serif); font-style: italic; font-size: 15px; margin-right: 48px; }
+
+/* ════════════════════════ SEÇÕES ════════════════════════ */
+section { position: relative; padding: clamp(72px, 11vh, 130px) 0; }
+.sec-head { display: flex; align-items: baseline; gap: 20px; margin-bottom: clamp(36px, 6vh, 64px); }
+.sec-num { font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; color: var(--ink-45); }
+.sec-title {
+  font-weight: 700; font-size: clamp(30px, 4.4vw, 56px);
+  letter-spacing: -0.02em; line-height: 1.02; text-transform: uppercase;
+}
+.sec-title .serif { font-family: var(--serif); font-style: italic; font-weight: 400; text-transform: none; }
+
+/* —— manifesto —— */
+.manifesto { border-bottom: 1px solid var(--ink-25); }
+.manifesto-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(32px, 6vw, 96px); align-items: start; }
+@media (max-width: 860px) { .manifesto-grid { grid-template-columns: 1fr; } }
+.manifesto p.lead {
+  font-family: var(--serif); font-size: clamp(24px, 2.8vw, 36px);
+  line-height: 1.3;
+}
+.manifesto p.lead strong { font-weight: 500; }
+.manifesto-side p { color: var(--ink-70); line-height: 1.65; margin-bottom: 18px; font-size: 16px; }
+.principle {
+  margin-top: 8px; padding: 18px 22px;
+  border: 1px solid var(--ink-25); border-left: 3px solid var(--ink);
+  font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em; line-height: 1.7;
+}
+
+/* —— doses —— */
+.doses { border-bottom: 1px solid var(--ink-25); background: var(--paper-2); }
+.dose-rail { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; perspective: 1200px; }
+@media (max-width: 960px) { .dose-rail { grid-template-columns: 1fr; } }
+.dose-card {
+  position: relative;
+  border: 1px solid var(--ink-25);
+  background: var(--paper);
+  padding: 26px 24px 24px;
+  border-radius: 2px;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.dose-card .dose-no {
+  font-family: var(--wordmark); font-size: clamp(40px, 4vw, 54px); line-height: 1;
+  color: var(--ink); opacity: 0.92;
+}
+.dose-card h3 { margin-top: 18px; font-size: 19px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; }
+.dose-card p { margin-top: 10px; font-size: 14.5px; line-height: 1.55; color: var(--ink-70); }
+.dose-card .dose-tag { position: absolute; top: 26px; right: 22px; }
+.dose-meta { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--ink-25); display: flex; justify-content: space-between; }
+.doses-note { margin-top: 28px; font-family: var(--serif); font-style: italic; font-size: 17px; color: var(--ink-70); }
+
+/* —— bancada —— */
+.bancada { border-bottom: 1px solid var(--ink-25); }
+.bancada-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: clamp(32px, 5vw, 72px); align-items: center; }
+@media (max-width: 960px) { .bancada-grid { grid-template-columns: 1fr; } }
+.bancada-copy p { color: var(--ink-70); line-height: 1.65; margin-bottom: 16px; font-size: 16px; }
+.bancada-copy p strong { color: var(--ink); font-weight: 600; }
+.bancada-list { list-style: none; margin-top: 24px; }
+.bancada-list li {
+  display: flex; gap: 14px; align-items: baseline;
+  padding: 13px 0; border-top: 1px dashed var(--ink-25);
+  font-size: 15.5px;
+}
+.bancada-list li:last-child { border-bottom: 1px dashed var(--ink-25); }
+.bancada-list .spec { flex-shrink: 0; width: 34px; }
+
+.bancada-fig {
+  position: relative; border: 1px solid var(--ink-25); background: var(--paper-2);
+  border-radius: 2px; padding: 10px;
+}
+.bancada-fig svg { display: block; width: 100%; height: auto; }
+.bancada-fig figcaption { display: flex; justify-content: space-between; padding: 12px 8px 4px; }
+/* traços que se desenham */
+.draw-path { stroke-dasharray: 1; stroke-dashoffset: 1; }
+
+/* —— oferta —— */
+.oferta { border-bottom: 1px solid var(--ink-25); background: var(--ink); color: var(--paper); }
+.oferta ::selection { background: var(--paper); color: var(--ink); }
+.oferta .sec-num, .oferta .spec { color: rgba(242,239,230,0.6); }
+.oferta-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: clamp(36px, 5vw, 80px); align-items: start; }
+@media (max-width: 960px) { .oferta-grid { grid-template-columns: 1fr; } }
+.oferta h2 {
+  font-weight: 800; font-size: clamp(34px, 4.6vw, 60px);
+  letter-spacing: -0.02em; line-height: 1.0; text-transform: uppercase;
+}
+.oferta h2 .serif { font-family: var(--serif); font-style: italic; font-weight: 400; text-transform: none; }
+.oferta-copy p { margin-top: 22px; color: rgba(242,239,230,0.82); line-height: 1.65; max-width: 46ch; }
+.oferta-card {
+  border: 1px solid rgba(242,239,230,0.35); background: rgba(242,239,230,0.04);
+  border-radius: 2px; padding: clamp(26px, 3vw, 40px);
+}
+.oferta-card .price-row { display: flex; align-items: baseline; gap: 12px; margin: 18px 0 4px; }
+.oferta-card .price { font-family: var(--wordmark); font-size: clamp(38px, 4.5vw, 56px); line-height: 1; }
+.oferta-card .price-note { font-family: var(--mono); font-size: 12px; color: rgba(242,239,230,0.6); }
+.oferta-incl { list-style: none; margin: 22px 0 26px; }
+.oferta-incl li {
+  padding: 11px 0; border-top: 1px dashed rgba(242,239,230,0.3);
+  display: flex; gap: 12px; font-size: 15px; align-items: baseline;
+}
+.oferta-incl li::before { content: '→'; font-family: var(--mono); flex-shrink: 0; }
+.btn-paper {
+  width: 100%; justify-content: center;
+  background: var(--paper); color: var(--ink); border-color: var(--paper);
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.25);
+}
+.btn-paper:hover { box-shadow: 6px 6px 0 rgba(0,0,0,0.25); }
+.oferta-micro { margin-top: 14px; text-align: center; font-family: var(--mono); font-size: 11.5px; color: rgba(242,239,230,0.55); letter-spacing: 0.08em; }
+
+/* —— captação —— */
+.cap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(36px, 5vw, 80px); }
+@media (max-width: 900px) { .cap-grid { grid-template-columns: 1fr; } }
+.cap-copy p { color: var(--ink-70); line-height: 1.65; margin-top: 18px; max-width: 44ch; font-size: 16px; }
+.cap-form { border: 1px solid var(--ink-25); padding: clamp(24px, 3vw, 36px); background: var(--paper-2); border-radius: 2px; }
+.field { margin-bottom: 18px; }
+.field label { display: block; margin-bottom: 7px; }
+.field input {
+  width: 100%; padding: 13px 14px;
+  font-family: var(--grotesk); font-size: 15px; color: var(--ink);
+  background: var(--paper); border: 1px solid var(--ink-25); border-radius: 2px;
+  outline: none; transition: border 0.2s;
+}
+.field input::placeholder { color: var(--ink-45); }
+.field input:focus { border-color: var(--ink); }
+.cap-form .btn { width: 100%; justify-content: center; }
+.cap-ok { display: none; margin-top: 14px; font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.06em; }
+
+/* ════════════════════════ FOOTER ════════════════════════ */
+footer { border-top: 1px solid var(--ink-25); padding: 40px 0 110px; position: relative; overflow: hidden; }
+.foot-row { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.foot-wm {
+  position: absolute; left: 0; right: 0; bottom: -2%;
+  text-align: center;
+  opacity: 0.10;
+  pointer-events: none; white-space: nowrap;
+}
+.foot-wm img { width: min(92vw, 1180px); height: auto; display: inline-block; }
+
+.rv { opacity: 0; transform: translateY(28px); }
+</style>
+</head>
+<body>
+
+<div id="printbar"></div>
+<div id="inkdot"></div>
+
+<!-- ══════════ NAV ══════════ -->
+<nav>
+  <div class="nav-inner">
+    <a class="nav-brand" href="#">
+      <img src="assets/brain.png" alt="" style="height:30px;width:auto" />
+      <img src="assets/wordmark.png" alt="CRANIOS" style="height:14px;width:auto" />
+    </a>
+    <div class="nav-links">
+      <a href="#doses">Doses</a>
+      <a href="#bancada">Bancada</a>
+      <a href="#acesso">Acesso</a>
+      <a class="nav-cta magnetic" href="#acesso">Entrar na escola</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════ HERO ══════════ -->
+<header class="hero" id="hero">
+  <div id="brain-gl"></div>
+  <span class="regmark rm-tl" style="top:90px"></span>
+  <span class="regmark rm-tr" style="top:90px"></span>
+  <div class="wrap">
+    <div class="hero-spec-row rv">
+      <span class="spec">Escola de pensamento criativo</span>
+      <span class="spec">Ecossistema Crxate · BR</span>
+    </div>
+    <h1 id="h1">
+      O raciocínio<br/>
+      antes da<br/>
+      <span class="serif">ferramenta.</span>
+    </h1>
+    <p class="hero-sub rv">
+      A Crânios ensina a pensar com inteligência artificial do jeito que uma
+      operação real exige: doses curtas, prática aplicada e uma bancada
+      pra construir, não só assistir.
+    </p>
+    <div class="hero-actions rv">
+      <a class="btn btn-solid magnetic" href="#acesso">Quero acesso</a>
+      <a class="btn btn-ghost magnetic" href="#doses">Ver as doses</a>
+    </div>
+  </div>
+  <div class="hero-scroll-hint" aria-hidden="true">
+    <span class="spec">scroll</span>
+    <span class="line"></span>
+  </div>
+  <span class="regmark rm-bl"></span>
+  <span class="regmark rm-br"></span>
+</header>
+
+<!-- ══════════ MARQUEE ══════════ -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-inner" id="marquee">
+    <img src="assets/wordmark-paper.png" alt="" /><em>escola de pensamento criativo</em>
+    <img src="assets/wordmark-paper.png" alt="" /><em>o raciocínio antes da ferramenta</em>
+    <img src="assets/wordmark-paper.png" alt="" /><em>escola de pensamento criativo</em>
+    <img src="assets/wordmark-paper.png" alt="" /><em>o raciocínio antes da ferramenta</em>
+    <img src="assets/wordmark-paper.png" alt="" /><em>escola de pensamento criativo</em>
+    <img src="assets/wordmark-paper.png" alt="" /><em>o raciocínio antes da ferramenta</em>
+  </div>
+</div>
+
+<!-- ══════════ MANIFESTO ══════════ -->
+<section class="manifesto">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">01 /</span>
+      <h2 class="sec-title st">Por que <span class="serif">Crânios</span></h2>
+    </div>
+    <div class="manifesto-grid">
+      <p class="lead rv">
+        Todo mundo tem acesso às mesmas ferramentas.
+        <strong>Quase ninguém pensa direito com elas.</strong>
+        A diferença entre usar IA e operar com IA não está no software.
+        Está no crânio de quem comanda.
+      </p>
+      <div class="manifesto-side rv">
+        <p>
+          A Crânios nasce de dentro de uma operação de verdade: sistemas financeiros,
+          integrações, automações e agentes rodando em produção. O que ensinamos
+          não vem de tutorial: vem do que quebrou, do que funcionou e do método
+          que sobrou depois.
+        </p>
+        <p>Sem hype, sem promessa de mágica. Método, contexto e prática.</p>
+        <div class="principle">
+          PESSOAS DECIDEM.<br/>MÁQUINAS EXECUTAM.<br/>IA ANALISA.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ DOSES ══════════ -->
+<section class="doses" id="doses">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">02 /</span>
+      <h2 class="sec-title st">Doses <span class="serif">semanais</span></h2>
+    </div>
+    <div class="dose-rail">
+      <article class="dose-card rv">
+        <span class="dose-tag spec">dose</span>
+        <div class="dose-no">01</div>
+        <h3>Skills, MCPs, APIs, Agentes &amp; Prompt</h3>
+        <p>Os 5 pilares de qualquer automação inteligente de verdade, e a anatomia de um prompt que sai do genérico e vira resultado de produção.</p>
+        <div class="dose-meta">
+          <span class="spec">fundamentos</span>
+          <span class="spec">~15 min</span>
+        </div>
+      </article>
+      <article class="dose-card rv">
+        <span class="dose-tag spec">dose</span>
+        <div class="dose-no">02</div>
+        <h3>Contexto: a memória viva da IA</h3>
+        <p>O que separa uma IA que esqueceu tudo de uma que continua de onde parou. Janela de tokens, arquivos como cérebro externo e contexto operacional.</p>
+        <div class="dose-meta">
+          <span class="spec">método</span>
+          <span class="spec">~15 min</span>
+        </div>
+      </article>
+      <article class="dose-card rv">
+        <span class="dose-tag spec">dose</span>
+        <div class="dose-no">03</div>
+        <h3>Quando a IA erra</h3>
+        <p>A IA não erra às vezes: ela erra com confiança. Por que a base de dados é a fonte da verdade e como auditar antes de confiar.</p>
+        <div class="dose-meta">
+          <span class="spec">prática</span>
+          <span class="spec">~15 min</span>
+        </div>
+      </article>
+    </div>
+    <p class="doses-note rv">Toda dose termina com uma prática que melhora um fluxo de trabalho real. Nada de teoria solta.</p>
+  </div>
+</section>
+
+<!-- ══════════ BANCADA ══════════ -->
+<section class="bancada" id="bancada">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">03 /</span>
+      <h2 class="sec-title st">A <span class="serif">bancada</span> do aluno</h2>
+    </div>
+    <div class="bancada-grid">
+      <div class="bancada-copy rv">
+        <p>
+          Aula em vídeo você assiste e esquece. Na Crânios, cada aluno trabalha numa
+          <strong>bancada</strong>: um ateliê digital inspirado nas mesas de arquitetos
+          e designers, onde o conhecimento fica espalhado, conectado e à mão.
+        </p>
+        <p>
+          Framework ao lado do exercício. Exercício ligado ao template.
+          Template pronto pra virar operação. Você não acumula certificados,
+          <strong>constrói um acervo de raciocínio</strong>.
+        </p>
+        <ul class="bancada-list">
+          <li><span class="spec">B.1</span> Canvas infinito: organize como um ateliê, não como uma playlist</li>
+          <li><span class="spec">B.2</span> Frameworks, exercícios, vídeos e templates conectados entre si</li>
+          <li><span class="spec">B.3</span> Prática aplicada no seu contexto: marketing, vendas, produto, dados</li>
+          <li><span class="spec">B.4</span> O que você monta na bancada, você leva pra sua operação</li>
+        </ul>
+      </div>
+      <figure class="bancada-fig rv" id="bancada-fig">
+        <svg viewBox="0 0 560 400" fill="none" aria-label="Diagrama da bancada">
+          <rect x="12" y="12" width="536" height="376" stroke="var(--ink)" stroke-width="1.5" opacity="0.5"/>
+          <text x="28" y="44" style="font-family:'DM Mono',monospace;font-size:12px;letter-spacing:2px;fill:var(--ink)">BANCADA · VISTA SUPERIOR</text>
+          <line x1="12" y1="62" x2="548" y2="62" stroke="var(--ink)" opacity="0.35"/>
+          <g stroke="var(--ink)" stroke-width="1.5">
+            <rect x="52"  y="100" width="130" height="64" fill="var(--paper)"/>
+            <rect x="240" y="100" width="130" height="64" fill="var(--paper)"/>
+            <rect x="52"  y="230" width="130" height="64" fill="var(--paper)"/>
+            <rect x="240" y="230" width="130" height="64" fill="var(--paper)"/>
+            <rect x="418" y="163" width="102" height="66" rx="33" fill="var(--paper)"/>
+          </g>
+          <g style="font-family:'DM Mono',monospace;font-size:11.5px;letter-spacing:1px;fill:var(--ink)">
+            <text x="76"  y="136">FRAMEWORK</text>
+            <text x="270" y="136">EXERCÍCIO</text>
+            <text x="93"  y="266">VÍDEO</text>
+            <text x="266" y="266">TEMPLATE</text>
+            <text x="437" y="200">OPERAÇÃO</text>
+          </g>
+          <g stroke="var(--ink)" stroke-width="1.2" opacity="0.6">
+            <path class="draw-path" d="M182 132 H240" pathLength="1"/>
+            <path class="draw-path" d="M117 164 V230" pathLength="1"/>
+            <path class="draw-path" d="M305 164 V230" pathLength="1"/>
+            <path class="draw-path" d="M370 262 C400 262 400 196 418 196" pathLength="1"/>
+            <path class="draw-path" d="M370 132 C400 132 400 190 418 190" pathLength="1"/>
+          </g>
+          <g fill="var(--ink)" opacity="0.6">
+            <circle cx="240" cy="132" r="3"/><circle cx="117" cy="230" r="3"/>
+            <circle cx="305" cy="230" r="3"/><circle cx="418" cy="196" r="3"/>
+          </g>
+          <text x="28" y="372" style="font-family:'DM Mono',monospace;font-size:10.5px;letter-spacing:1.5px;fill:var(--ink);opacity:0.55">FIG. 03 · CONHECIMENTO CONECTADO, NÃO EMPILHADO</text>
+        </svg>
+        <figcaption>
+          <span class="spec">Em construção</span>
+          <span class="spec">Incluída no acesso</span>
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ OFERTA ══════════ -->
+<section class="oferta" id="acesso">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num" style="color:rgba(242,239,230,0.55)">04 /</span>
+      <h2 class="st">Acesso à <span class="serif">Crânios</span></h2>
+    </div>
+    <div class="oferta-grid">
+      <div class="oferta-copy rv">
+        <p>
+          Um acesso, a escola inteira: as doses, a bancada, os templates e o que
+          for lançado dentro da Crânios enquanto seu acesso estiver ativo.
+        </p>
+        <p>
+          Feita pra quem opera de verdade: dono de negócio, gestor, analista,
+          criador. Gente que quer parar de colecionar ferramenta pra começar
+          a pensar com elas.
+        </p>
+      </div>
+      <div class="oferta-card rv">
+        <span class="spec">Acesso Crânios</span>
+        <div class="price-row">
+          <span class="price">R$ ___</span>
+          <span class="price-note">/ formato a definir</span>
+        </div>
+        <ul class="oferta-incl">
+          <li>Todas as doses, atuais e novas</li>
+          <li>Bancada do aluno (canvas + templates)</li>
+          <li>Práticas aplicadas por área</li>
+          <li>Comunidade de crânios</li>
+        </ul>
+        <a class="btn btn-paper magnetic" href="https://wa.me/5519996878780?text=Quero%20acesso%20%C3%A0%20Cr%C3%A2nios" target="_blank" rel="noopener">Garantir meu acesso</a>
+        <p class="oferta-micro">PAGAMENTO SEGURO · PIX OU CARTÃO</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ CAPTAÇÃO ══════════ -->
+<section class="captacao">
+  <div class="wrap">
+    <div class="cap-grid">
+      <div class="cap-copy rv">
+        <div class="sec-head" style="margin-bottom:0">
+          <span class="sec-num">05 /</span>
+          <h2 class="sec-title st">Ainda <span class="serif">pensando?</span></h2>
+        </div>
+        <p>
+          Deixa seu contato e recebe uma dose gratuita direto no e-mail,
+          pra sentir o formato antes de entrar.
+        </p>
+      </div>
+      <form class="cap-form rv" id="lead-form">
+        <div class="field">
+          <label class="spec" for="f-nome">Nome</label>
+          <input id="f-nome" type="text" placeholder="Seu nome" required />
+        </div>
+        <div class="field">
+          <label class="spec" for="f-email">E-mail</label>
+          <input id="f-email" type="email" placeholder="voce@empresa.com.br" required />
+        </div>
+        <div class="field">
+          <label class="spec" for="f-whats">WhatsApp <span style="opacity:0.5">(opcional)</span></label>
+          <input id="f-whats" type="tel" placeholder="(19) 9 9999-9999" />
+        </div>
+        <button class="btn btn-solid magnetic" type="submit">Receber dose gratuita</button>
+        <p class="cap-ok" id="cap-ok">→ RECEBIDO. SUA DOSE CHEGA EM BREVE.</p>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ FOOTER ══════════ -->
+<footer>
+  <div class="wrap foot-row">
+    <span class="spec">Crânios © 2026</span>
+    <span class="spec">Ecossistema <a href="https://crxate.com.br" style="color:inherit">crxate.com.br</a></span>
+    <span class="spec">cranios.com.br</span>
+  </div>
+  <div class="foot-wm" aria-hidden="true"><img src="assets/wordmark.png" alt="" /></div>
+</footer>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   CAMADA DE MOVIMENTO
+   GSAP + ScrollTrigger + SplitText · Lenis · Motion · three.js
+   ═══════════════════════════════════════════════════════ */
+gsap.registerPlugin(ScrollTrigger, SplitText);
+
+const isMobile = matchMedia('(max-width: 900px)').matches;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ——— Lenis: scroll suave ——— */
+const lenis = new Lenis({ lerp: 0.09, wheelMultiplier: 1.0 });
+lenis.on('scroll', ScrollTrigger.update);
+gsap.ticker.add((t) => lenis.raf(t * 1000));
+gsap.ticker.lagSmoothing(0);
+
+/* ——— barra de impressão ——— */
+gsap.to('#printbar', {
+  scaleX: 1, ease: 'none',
+  scrollTrigger: { start: 0, end: 'max', scrub: 0.3 }
+});
+
+/* ——— hero: tipografia tipográfica (SplitText) ——— */
+const h1split = SplitText.create('#h1', { type: 'chars,lines', mask: 'lines' });
+gsap.from(h1split.chars, {
+  yPercent: 118, rotate: () => gsap.utils.random(-7, 7),
+  duration: 1.1, ease: 'power4.out', stagger: 0.028, delay: 0.15
+});
+gsap.utils.toArray('.hero .rv').forEach((el, i) => {
+  gsap.to(el, { opacity: 1, y: 0, duration: 1, ease: 'power3.out', delay: 0.75 + i * 0.12 });
+});
+
+/* ——— títulos de seção: palavras sobem da "prensa" ——— */
+document.querySelectorAll('.st').forEach((el) => {
+  const sp = SplitText.create(el, { type: 'words', mask: 'words' });
+  gsap.from(sp.words, {
+    yPercent: 115, duration: 0.9, ease: 'power3.out', stagger: 0.06,
+    scrollTrigger: { trigger: el, start: 'top 85%' }
+  });
+});
+
+/* ——— reveals genéricos ——— */
+document.querySelectorAll('.rv:not(.hero .rv)').forEach((el) => {
+  gsap.to(el, {
+    opacity: 1, y: 0, duration: 0.9, ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 86%' }
+  });
+});
+
+/* ——— marquee dirigido por scroll: anda com a rolagem e para com ela ——— */
+(() => {
+  const el = document.getElementById('marquee');
+  let x = 0, vel = 0;
+  lenis.on('scroll', (e) => { vel = e.velocity; });
+  gsap.ticker.add((_, dt) => {
+    vel *= 0.94; // desacelera até parar
+    if (Math.abs(vel) < 0.01) vel = 0;
+    x -= vel * dt * 0.09;
+    const w = el.scrollWidth / 3;
+    if (-x > w) x += w;
+    if (x > 0) x -= w;
+    el.style.transform = `translateX(${x}px)`;
+  });
+})();
+
+/* ——— diagrama da bancada: traços se desenham no scroll ——— */
+gsap.to('#bancada-fig .draw-path', {
+  strokeDashoffset: 0, duration: 1.4, ease: 'power2.inOut', stagger: 0.18,
+  scrollTrigger: { trigger: '#bancada-fig', start: 'top 75%' }
+});
+
+/* ——— oferta: a página "entra na prensa" (clip reveal) ——— */
+gsap.from('.oferta', {
+  clipPath: 'inset(12% 6% 12% 6% round 4px)', ease: 'none',
+  scrollTrigger: { trigger: '.oferta', start: 'top 90%', end: 'top 30%', scrub: 0.6 }
+});
+
+/* ——— Motion (motion.dev): botões magnéticos com física de mola ——— */
+const { animate } = Motion;
+if (!isMobile && !reduceMotion) {
+  document.querySelectorAll('.magnetic').forEach((btn) => {
+    btn.addEventListener('mousemove', (e) => {
+      const r = btn.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2);
+      const dy = e.clientY - (r.top + r.height / 2);
+      animate(btn, { x: dx * 0.28, y: dy * 0.28 }, { type: 'spring', stiffness: 300, damping: 24 });
+    });
+    btn.addEventListener('mouseleave', () => {
+      animate(btn, { x: 0, y: 0 }, { type: 'spring', stiffness: 220, damping: 14 });
+    });
+  });
+
+  /* tilt 3D nas fichas de dose */
+  document.querySelectorAll('.dose-card').forEach((card) => {
+    card.addEventListener('mousemove', (e) => {
+      const r = card.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width - 0.5;
+      const py = (e.clientY - r.top) / r.height - 0.5;
+      animate(card, { rotateY: px * 10, rotateX: -py * 8, y: -4 }, { type: 'spring', stiffness: 260, damping: 20 });
+    });
+    card.addEventListener('mouseleave', () => {
+      animate(card, { rotateY: 0, rotateX: 0, y: 0 }, { type: 'spring', stiffness: 200, damping: 16 });
+    });
+  });
+}
+
+/* ——— cursor de tinta ——— */
+(() => {
+  if (isMobile) return;
+  const dot = document.getElementById('inkdot');
+  let tx = -100, ty = -100, cx = -100, cy = -100, seen = false;
+  addEventListener('mousemove', (e) => {
+    tx = e.clientX; ty = e.clientY;
+    if (!seen) { seen = true; dot.classList.add('on'); cx = tx; cy = ty; }
+  });
+  gsap.ticker.add(() => {
+    cx += (tx - cx) * 0.22; cy += (ty - cy) * 0.22;
+    dot.style.left = cx + 'px'; dot.style.top = cy + 'px';
+  });
+  document.querySelectorAll('a, button, input').forEach((el) => {
+    el.addEventListener('mouseenter', () => dot.classList.add('grow'));
+    el.addEventListener('mouseleave', () => dot.classList.remove('grow'));
+  });
+})();
+
+/* ═══════════════════════════════════════════════════════
+   THREE.JS — O CÉREBRO DE TINTA
+   Nuvem de pontos amostrada do símbolo OFICIAL da marca
+   (máscara embutida em assets/brain-mask.js). Halftone
+   vivo: monta no load, respira, segue o mouse e se
+   dispersa com o scroll.
+   ═══════════════════════════════════════════════════════ */
+(() => {
+  const holder = document.getElementById('brain-gl');
+  if (!window.THREE || !window.BRAIN_MASK_B64 || reduceMotion) return;
+
+  const maskImg = new Image();
+  maskImg.src = 'data:image/png;base64,' + window.BRAIN_MASK_B64;
+  maskImg.onload = () => build(maskImg);
+
+  function build(imgEl) {
+  /* 1 — amostra a máscara do logo → posições de partículas */
+  const W = imgEl.width, H = imgEl.height;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  g.drawImage(imgEl, 0, 0);
+  const img = g.getImageData(0, 0, W, H).data;
+  const step = isMobile ? 3 : 2;
+  const SC = 226 / W; // escala px → mundo
+  const pos = [], scatter = [], sizes = [], phases = [];
+  for (let y = 0; y < H; y += step) {
+    for (let x = 0; x < W; x += step) {
+      if (img[(y * W + x) * 4] > 128) {
+        pos.push((x - W / 2) * SC, (H / 2 - y) * SC, (Math.random() - 0.5) * 18);
+        const th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
+        const rad = 90 + Math.random() * 150;
+        scatter.push(
+          Math.sin(ph) * Math.cos(th) * rad,
+          Math.sin(ph) * Math.sin(th) * rad,
+          Math.cos(ph) * rad * 0.6
+        );
+        sizes.push(1.3 + Math.random() * 2.2);
+        phases.push(Math.random() * Math.PI * 2);
+      }
+    }
+  }
+
+  /* 3 — cena */
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(40, 1, 1, 1000);
+  cam.position.z = 300;
+  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  holder.appendChild(renderer.domElement);
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('aScatter', new THREE.Float32BufferAttribute(scatter, 3));
+  geo.setAttribute('aSize', new THREE.Float32BufferAttribute(sizes, 1));
+  geo.setAttribute('aPhase', new THREE.Float32BufferAttribute(phases, 1));
+
+  const uniforms = {
+    uTime: { value: 0 },
+    uScatter: { value: 1 },      // nasce disperso, monta no load
+    uPixelScale: { value: 1 }
+  };
+  const mat = new THREE.ShaderMaterial({
+    uniforms,
+    transparent: true,
+    depthWrite: false,
+    vertexShader: `
+      attribute vec3 aScatter;
+      attribute float aSize;
+      attribute float aPhase;
+      uniform float uTime;
+      uniform float uScatter;
+      uniform float uPixelScale;
+      varying float vFade;
+      void main() {
+        vec3 p = position;
+        p.x += sin(uTime * 0.7 + aPhase) * 1.6;
+        p.y += cos(uTime * 0.55 + aPhase * 1.31) * 1.6;
+        p.z += sin(uTime * 0.4 + aPhase * 0.7) * 2.2;
+        float s = uScatter * uScatter;
+        p += aScatter * s;
+        vFade = 1.0 - uScatter * 0.72;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_PointSize = aSize * uPixelScale * (300.0 / -mv.z);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      varying float vFade;
+      void main() {
+        vec2 uv = gl_PointCoord - 0.5;
+        float d = length(uv);
+        if (d > 0.5) discard;
+        float a = smoothstep(0.5, 0.32, d);
+        gl_FragColor = vec4(0.153, 0.133, 0.8, a * 0.9 * vFade);
+      }
+    `
+  });
+
+  const points = new THREE.Points(geo, mat);
+  const group = new THREE.Group();
+  group.add(points);
+  scene.add(group);
+
+  /* posiciona o cérebro: direita no desktop, fundo no mobile */
+  function layout() {
+    const w = holder.clientWidth, h = holder.clientHeight;
+    renderer.setSize(w, h);
+    cam.aspect = w / h;
+    cam.updateProjectionMatrix();
+    uniforms.uPixelScale.value = Math.min(devicePixelRatio, 2);
+    if (isMobile) {
+      group.position.set(0, 20, -40);
+      holder.style.opacity = 0.3;
+    } else {
+      const ndc = 0.56; // desloca pra direita
+      const halfW = Math.tan((cam.fov * Math.PI) / 360) * cam.position.z * cam.aspect;
+      group.position.set(halfW * ndc, 8, 0);
+      group.scale.setScalar(Math.min(1, w / 1500) * 0.92);
+    }
+  }
+  layout();
+  addEventListener('resize', () => { layout(); });
+
+  /* dois estados independentes; o shader usa o maior deles.
+     load: 1 → 0 (monta ao carregar)
+     scroll: 0 → 1 (dispersa ao descer, remonta ao subir) */
+  const scatterState = { load: 1, scroll: 0 };
+  gsap.to(scatterState, { load: 0, duration: 2.2, ease: 'power3.out', delay: 0.25 });
+  ScrollTrigger.create({
+    trigger: '#hero', start: 'top top', end: 'bottom 25%',
+    onUpdate: (self) => { scatterState.scroll = self.progress; }
+  });
+
+  /* mouse: o cérebro observa */
+  let mx = 0, my = 0;
+  addEventListener('mousemove', (e) => {
+    mx = (e.clientX / innerWidth - 0.5) * 2;
+    my = (e.clientY / innerHeight - 0.5) * 2;
+  });
+
+  const clock = new THREE.Clock();
+  gsap.ticker.add(() => {
+    uniforms.uTime.value = clock.getElapsedTime();
+    const target = Math.max(scatterState.load, scatterState.scroll);
+    uniforms.uScatter.value += (target - uniforms.uScatter.value) * 0.08;
+    group.rotation.y += ((mx * 0.42) - group.rotation.y) * 0.05;
+    group.rotation.x += ((my * 0.28) - group.rotation.x) * 0.05;
+    renderer.render(scene, cam);
+  });
+  } /* fim build() */
+})();
+
+/* ——— form (preview — integração Supabase entra depois) ——— */
+document.getElementById('lead-form').addEventListener('submit', function (e) {
+  e.preventDefault();
+  document.getElementById('cap-ok').style.display = 'block';
+  this.querySelectorAll('input, button').forEach((i) => { i.disabled = true; });
+});
+</script>
+</body>
+</html>
